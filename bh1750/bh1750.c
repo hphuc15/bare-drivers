@@ -6,6 +6,7 @@
  * Datasheet: https://www.mouser.com/datasheet/2/348/bh1750fvi-e-186247.pdf
  */
 #include "bh1750.h"
+#include <stddef.h>
 
 #define BH1750_DELAY_H_MS 180U /* Max measurement time for H-Resolution modes */
 #define BH1750_DELAY_L_MS 24U  /* Max measurement time for L-Resolution mode  */

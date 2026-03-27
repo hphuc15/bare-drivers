@@ -8,8 +8,8 @@
 #include <stdint.h>
 
 /* I2C slave address (7-bit), determined by ADDR pin */
-#define BH1750_ADDR_LOW 0x23  /* ADDR = GND */
-#define BH1750_ADDR_HIGH 0x5C /* ADDR = VCC */
+#define BH1750_I2C_ADDR_LOW 0x23  /* ADDR = GND */
+#define BH1750_I2C_ADDR_HIGH 0x5C /* ADDR = VCC */
 
 /* Opcodes */
 #define BH1750_CMD_POWER_DOWN 0x00
