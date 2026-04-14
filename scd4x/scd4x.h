@@ -1,0 +1,197 @@
+/**
+ * @file scd4x.h
+ * @brief Bare-metal driver header for Sensirion SCD4x CO2 sensor
+ *        Supports SCD40, SCD41, SCD43
+ *        Based on Datasheet v1.7 - April 2025
+ */
+#ifndef SCD4X_H
+#define SCD4X_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define SCD4X_I2C_ADDR 0x62
+
+/* ============================================================
+ * Sensor Variant (get_sensor_variant, bits[15:12] of word[0])
+ * ============================================================ */
+#define SCD4X_VARIANT_MASK                              0xF000
+#define SCD4X_VARIANT_SCD40                             0x0000
+#define SCD4X_VARIANT_SCD41                             0x1000
+#define SCD4X_VARIANT_SCD43                             0x5000
+
+/* ============================================================
+ * CRC-8 (Section 3.12, Table 40)
+ * Polynomial: 0x31 (x^8 + x^5 + x^4 + 1), Init: 0xFF
+ * ============================================================ */
+#define SCD4X_CRC8_POLYNOMIAL                           0x31
+#define SCD4X_CRC8_INIT                                 0xFF
+
+/* ============================================================
+ * Limits & Defaults (Section 3.7, 3.8)
+ * ============================================================ */
+#define SCD4X_ALTITUDE_MIN_M                            0
+#define SCD4X_ALTITUDE_MAX_M                            3000
+#define SCD4X_ALTITUDE_DEFAULT_M                        0
+
+#define SCD4X_PRESSURE_MIN_PA                           70000
+#define SCD4X_PRESSURE_MAX_PA                           120000
+#define SCD4X_PRESSURE_DEFAULT_PA                       101300
+
+#define SCD4X_TEMP_OFFSET_DEFAULT_C                     4.0f
+#define SCD4X_TEMP_OFFSET_MIN_C                         0.0f
+#define SCD4X_TEMP_OFFSET_MAX_C                         20.0f
+
+#define SCD4X_ASC_TARGET_DEFAULT_PPM                    400
+#define SCD4X_ASC_INITIAL_PERIOD_DEFAULT_H              44
+#define SCD4X_ASC_STANDARD_PERIOD_DEFAULT_H             156
+
+#define SCD4X_FRC_FAILED                                0xFFFF
+#define SCD4X_DATA_READY_MASK                           0x07FF  /* 11 LSBs */
+
+
+/**
+ * @brief Write len bytes to device; return 0 on success
+ * @note  Pass 7-bit address; HAL must handle R/W bit shift if required (e.g. addr << 1 for STM32)
+ *
+ * @param addr  7-bit I2C device address
+ * @param data  Pointer to data buffer to transmit
+ * @param len   Number of bytes to write
+ * @return      0 on success, non-zero on error
+ */
+typedef int (*scd4x_i2c_write_fn)(uint8_t addr, const uint8_t *data, size_t len);
+
+/**
+ * @brief Read len bytes from device; return 0 on success
+ *
+ * @param addr  7-bit I2C device address
+ * @param data  Pointer to buffer to store received bytes
+ * @param len   Number of bytes to read
+ * @return      0 on success, non-zero on error
+ */
+typedef int (*scd4x_i2c_read_fn)(uint8_t addr, uint8_t *data, size_t len);
+
+/**
+ * @brief Millisecond delay
+ *
+ * @param ms  Duration to block in milliseconds
+ */
+typedef void (*scd4x_delay_ms_fn)(uint32_t ms);
+
+typedef enum {
+    SCD4X_OK            =  0,
+    SCD4X_ERR_I2C       = -1,   /* I2C bus error */
+    SCD4X_ERR_CRC       = -2,   /* CRC mismatch error */
+    SCD4X_ERR_FRC       = -3,   /* forced recalibration fail */
+    SCD4X_ERR_NOT_READY = -4,   /* data not ready */
+    SCD4X_ERR_PARAM     = -5,   /* arguments is out of value */
+} SCD4x_Status;
+
+typedef enum {
+    SCD4X_MODEL_40 = 0,
+    SCD4X_MODEL_41,
+    SCD4X_MODEL_43,
+} SCD4x_Model;
+
+typedef enum {
+    SCD4X_MODE_PERIODIC = 0,
+    SCD4X_MODE_PERIODIC_LOW_POWER,
+    SCD4X_MODE_SINGLE_SHOT,      /* Only available on SCD41 and SCD43 models */
+} SCD4x_Mode;
+
+typedef struct {
+    uint16_t co2_ppm;
+    float temperature_c;
+    float humidity_rh;
+} SCD4x_Measurement;
+
+typedef struct SCD4x_Dev {
+    uint8_t i2c_addr;              /* 7-bit I2C address: SCD4X_I2C_ADDR */
+    SCD4x_Mode mode;
+    scd4x_i2c_write_fn i2c_write; /* Write len bytes to device; return 0 on success */
+    scd4x_i2c_read_fn i2c_read;   /* Read  len bytes from device; return 0 on success */
+    scd4x_delay_ms_fn delay_ms;   /* Millisecond delay                                */
+} SCD4x_Dev;
+
+/* Public APIs */
+
+SCD4x_Status SCD4x_Init(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_StartMeasurement(SCD4x_Dev *dev, SCD4x_Mode mode);
+
+SCD4x_Status SCD4x_ReadMeasurement(SCD4x_Dev *dev, SCD4x_Measurement *out);
+
+SCD4x_Status SCD4x_Stop(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_SetTemperatureOffset(SCD4x_Dev *dev, float offset_c);
+
+/**
+ * @brief
+ * @param 
+ * @param offset_c output buffer to store offset
+ */
+SCD4x_Status SCD4x_GetTemperatureOffset(SCD4x_Dev *dev, float *offset_c);
+
+SCD4x_Status SCD4x_SetSensorAltitude(SCD4x_Dev *dev, uint16_t altitude_m);
+
+SCD4x_Status SCD4x_GetSensorAltitude(SCD4x_Dev *dev, uint16_t *altitude_m);
+
+SCD4x_Status SCD4x_SetAmbientPressure(SCD4x_Dev *dev, uint32_t pressure_pa);
+
+SCD4x_Status SCD4x_GetAmbientPressure(SCD4x_Dev *dev, uint32_t *pressure_pa);
+
+SCD4x_Status SCD4x_PerformForcedRecalibration(SCD4x_Dev *dev, uint16_t target_ppm, int16_t *correction_ppm);
+
+SCD4x_Status SCD4x_SetAutoSelfCalibEnabled(SCD4x_Dev *dev, bool enabled);
+
+SCD4x_Status SCD4x_GetAutoSelfCalibEnabled(SCD4x_Dev *dev, bool *enabled);
+
+SCD4x_Status SCD4x_SetAutoSelfCalibTarget(SCD4x_Dev *dev, uint16_t target_ppm);
+
+SCD4x_Status SCD4x_GetAutoSelfCalibTarget(SCD4x_Dev *dev, uint16_t *target_ppm);
+
+/* ===================== Low power periodic measurement mode ====================== */
+
+SCD4x_Status SCD4x_GetDataReadyStatus(SCD4x_Dev *dev, bool *ready);
+
+/* ==================== Advanced Features ========================== */
+
+SCD4x_Status SCD4x_PersistSettings(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_GetSerialNumber(SCD4x_Dev *dev, uint64_t *serial);
+
+SCD4x_Status SCD4x_PerformSelfTest(SCD4x_Dev *dev, bool *ok);
+
+SCD4x_Status SCD4x_PerformFactoryReset(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_Reinit(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_GetSensorVariant(SCD4x_Dev *dev, uint16_t *variant);
+/* SINGLE SHOT MODE (SCD41 & SCD43 ONLY) */
+
+SCD4x_Status SCD4x_MeasureSingleShot(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_MeasureSingleShotRHTOnly(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_PowerDown(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_WakeUp(SCD4x_Dev *dev);
+
+SCD4x_Status SCD4x_SetASCInitialPeriod(SCD4x_Dev *dev, uint16_t period_h);
+
+SCD4x_Status SCD4x_GetASCInitialPeriod(SCD4x_Dev *dev, uint16_t *period_h);
+
+SCD4x_Status SCD4x_SetASCStandardPeriod(SCD4x_Dev *dev, uint16_t period_h);
+
+SCD4x_Status SCD4x_GetASCStandardPeriod(SCD4x_Dev *dev, uint16_t *period_h);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SCD4X_H */
