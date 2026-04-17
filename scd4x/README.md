@@ -9,18 +9,18 @@ Based on **Datasheet v1.7 – April 2025**. Platform-independent via HAL functio
 
 | Model | Periodic | Low-Power Periodic | Single-Shot | Power Down/Wake Up |
 |-------|----------|--------------------|-------------|-------------------|
-| SCD40 | ✅ | ✅ | ❌ | ❌ |
-| SCD41 | ✅ | ✅ | ✅ | ✅ |
-| SCD43 | ✅ | ✅ | ✅ | ✅ |
+| SCD40 | Yes | Yes | No | No |
+| SCD41 | Yes | Yes | Yes | Yes |
+| SCD43 | Yes | Yes | Yes | Yes |
 
 ---
 
 ## Files
 
 ```
-scd4x.h        — Public API, types, constants
-scd4x.c        — Driver implementation
-scd4x_test.c   — Full feature test suite
+scd4x.h        - Public API, types, constants
+scd4x.c        - Driver implementation
+scd4x_def.h    - Register and constant definitions
 ```
 
 ---
@@ -30,20 +30,21 @@ scd4x_test.c   — Full feature test suite
 ### 1. Implement HAL callbacks
 
 ```c
-/* STM32 example */
-static int my_i2c_write(uint8_t addr, const uint8_t *data, size_t len) {
-    return (HAL_I2C_Master_Transmit(&hi2c1, addr << 1,
-                                    (uint8_t*)data, len, 100) == HAL_OK) ? 0 : -1;
+/* ESP32 example (esp-idf) */
+static int my_i2c_write(uint8_t addr, const uint8_t *buf, size_t len) {
+    i2c_master_dev_handle_t h = find_handle(addr);
+    return (h && i2c_master_transmit(h, buf, len, 100) == ESP_OK) ? 0 : -1;
 }
 
-static int my_i2c_read(uint8_t addr, uint8_t *data, size_t len) {
-    return (HAL_I2C_Master_Receive(&hi2c1, addr << 1,
-                                   data, len, 100) == HAL_OK) ? 0 : -1;
+static int my_i2c_read(uint8_t addr, uint8_t *buf, size_t len) {
+    i2c_master_dev_handle_t h = find_handle(addr);
+    return (h && i2c_master_receive(h, buf, len, 100) == ESP_OK) ? 0 : -1;
 }
 
 static void my_delay_ms(uint32_t ms) {
-    HAL_Delay(ms);
+    vTaskDelay(pdMS_TO_TICKS(ms));
 }
+
 ```
 
 > **Note:** Pass 7-bit I2C address (`0x62`). The HAL must handle the R/W bit shift (e.g. `addr << 1` for STM32).
@@ -152,9 +153,7 @@ SCD4x_Status SCD4x_GetAmbientPressure(SCD4x_Dev *dev, uint32_t *pressure_pa);
 ```c
 /* Forced Recalibration — requires sensor warm-up (3+ min) in known CO2 concentration */
 /* correction_ppm is optional output (pass NULL if not needed) */
-SCD4x_Status SCD4x_PerformForcedRecalibration(SCD4x_Dev *dev,
-                                               uint16_t target_ppm,
-                                               int16_t *correction_ppm);
+SCD4x_Status SCD4x_PerformForcedRecalibration(SCD4x_Dev *dev, uint16_t target_ppm, int16_t *correction_ppm);
 
 /* Auto Self-Calibration (ASC) */
 SCD4x_Status SCD4x_SetAutoSelfCalibEnabled(SCD4x_Dev *dev, bool enabled);

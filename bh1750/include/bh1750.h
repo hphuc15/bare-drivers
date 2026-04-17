@@ -21,6 +21,11 @@ extern "C" {
 #define BH1750_CMD_POWER_ON 0x01
 #define BH1750_CMD_RESET 0x07 /* Clears data register, requires Power On state */
 
+/* MTreg (Measurement Time register) range */
+#define BH1750_MTREG_MIN     31U  /* Sensitivity = Default * 0.45 */
+#define BH1750_MTREG_DEFAULT 69U  /* Factory default                */
+#define BH1750_MTREG_MAX     254U /* Sensitivity = Default * 3.68  */
+
 /** Measurement mode */
 typedef enum
 {
@@ -65,13 +70,16 @@ typedef void (*bh1750_delay_ms_fn)(uint32_t ms);
 typedef struct
 {
     uint8_t i2c_addr;              /* 7-bit I2C address: BH1750_I2C_ADDR_LOW or BH1750_I2C_ADDR_HIGH */
-    BH1750_Mode mode;              /* Set by BH1750_Init(), do not modify manually */
+    BH1750_Mode mode;              /* BH1750 measurement mode */
+    uint8_t mtreg;                  /* Measurement Time register; set to BH1750_MTREG_DEFAULT (69)
+                                       by BH1750_Init(), updated by BH1750_SetMTreg() */
     bh1750_i2c_write_fn i2c_write; /* Write len bytes to device; return 0 on success */
     bh1750_i2c_read_fn i2c_read;   /* Read  len bytes from device; return 0 on success */
     bh1750_delay_ms_fn delay_ms;   /* Millisecond delay                                */
 } BH1750_Dev;
 
 BH1750_Status BH1750_Init(BH1750_Dev *dev, BH1750_Mode mode);
+BH1750_Status BH1750_SetMTreg(BH1750_Dev *dev, uint8_t mtreg);
 BH1750_Status BH1750_ReadLux(BH1750_Dev *dev, float *lux);
 BH1750_Status BH1750_PowerDown(BH1750_Dev *dev);
 

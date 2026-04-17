@@ -17,42 +17,6 @@ extern "C" {
 
 #define SCD4X_I2C_ADDR 0x62
 
-/* ============================================================
- * Sensor Variant (get_sensor_variant, bits[15:12] of word[0])
- * ============================================================ */
-#define SCD4X_VARIANT_MASK                              0xF000
-#define SCD4X_VARIANT_SCD40                             0x0000
-#define SCD4X_VARIANT_SCD41                             0x1000
-#define SCD4X_VARIANT_SCD43                             0x5000
-
-/* ============================================================
- * CRC-8 (Section 3.12, Table 40)
- * Polynomial: 0x31 (x^8 + x^5 + x^4 + 1), Init: 0xFF
- * ============================================================ */
-#define SCD4X_CRC8_POLYNOMIAL                           0x31
-#define SCD4X_CRC8_INIT                                 0xFF
-
-/* ============================================================
- * Limits & Defaults (Section 3.7, 3.8)
- * ============================================================ */
-#define SCD4X_ALTITUDE_MIN_M                            0
-#define SCD4X_ALTITUDE_MAX_M                            3000
-#define SCD4X_ALTITUDE_DEFAULT_M                        0
-
-#define SCD4X_PRESSURE_MIN_PA                           70000
-#define SCD4X_PRESSURE_MAX_PA                           120000
-#define SCD4X_PRESSURE_DEFAULT_PA                       101300
-
-#define SCD4X_TEMP_OFFSET_DEFAULT_C                     4.0f
-#define SCD4X_TEMP_OFFSET_MIN_C                         0.0f
-#define SCD4X_TEMP_OFFSET_MAX_C                         20.0f
-
-#define SCD4X_ASC_TARGET_DEFAULT_PPM                    400
-#define SCD4X_ASC_INITIAL_PERIOD_DEFAULT_H              44
-#define SCD4X_ASC_STANDARD_PERIOD_DEFAULT_H             156
-
-#define SCD4X_FRC_FAILED                                0xFFFF
-#define SCD4X_DATA_READY_MASK                           0x07FF  /* 11 LSBs */
 
 
 /**

@@ -4,92 +4,7 @@
  *        Based on Datasheet v1.7 - April 2025
  */
 #include "scd4x.h"
-
-/* Signal Conversion Macros (Section 3.6.2) */
-#define SCD4X_CO2_PPM(raw)              ((uint16_t)(raw))
-#define SCD4X_TEMP_C(raw)               (-45.0f + 175.0f * (float)(raw) / 65535.0f)
-#define SCD4X_HUMID_RH(raw)             (100.0f  * (float)(raw) / 65535.0f)
-#define SCD4X_TEMP_OFFSET_ENCODE(t_c)   ((uint16_t)((t_c) * 65535.0f / 175.0f))
-#define SCD4X_TEMP_OFFSET_DECODE(raw)   ((float)(raw) * 175.0f / 65535.0f)
-#define SCD4X_PRESSURE_ENCODE(pa)       ((uint16_t)((pa) / 100))
-#define SCD4X_PRESSURE_DECODE(raw)      ((uint32_t)(raw) * 100)
-#define SCD4X_FRC_CORRECTION_PPM(raw)   ((int16_t)((raw) - 0x8000))
-#define SCD4X_IS_DATA_READY(raw)        (((raw) & SCD4X_DATA_READY_MASK) != 0)
-
-/* COMMAND CODEs (Section 3.5, Table 9) */
-/* Basic Commands - Section 3.6 */
-#define SCD4X_CMD_START_PERIODIC_MEASUREMENT            0x21B1
-#define SCD4X_CMD_READ_MEASUREMENT                      0xEC05
-#define SCD4X_CMD_STOP_PERIODIC_MEASUREMENT             0x3F86
-/* On-Chip Output Signal Compensation - Section 3.7 */
-#define SCD4X_CMD_SET_TEMPERATURE_OFFSET                0x241D
-#define SCD4X_CMD_GET_TEMPERATURE_OFFSET                0x2318
-#define SCD4X_CMD_SET_SENSOR_ALTITUDE                   0x2427
-#define SCD4X_CMD_GET_SENSOR_ALTITUDE                   0x2322
-#define SCD4X_CMD_SET_AMBIENT_PRESSURE                  0xE000  /* write: R/W=0 */
-#define SCD4X_CMD_GET_AMBIENT_PRESSURE                  0xE000  /* read:  R/W=1 */
-/* Field Calibration - Section 3.8 */
-#define SCD4X_CMD_PERFORM_FORCED_RECALIBRATION          0x362F
-#define SCD4X_CMD_SET_AUTO_SELF_CALIB_ENABLED           0x2416
-#define SCD4X_CMD_GET_AUTO_SELF_CALIB_ENABLED           0x2313
-#define SCD4X_CMD_SET_AUTO_SELF_CALIB_TARGET            0x243A
-#define SCD4X_CMD_GET_AUTO_SELF_CALIB_TARGET            0x233F
-/* Low Power Periodic Measurement Mode - Section 3.9 */
-#define SCD4X_CMD_START_LOW_POWER_PERIODIC_MEASUREMENT  0x21AC
-#define SCD4X_CMD_GET_DATA_READY_STATUS                 0xE4B8
-/* Advanced Features - Section 3.10 */
-#define SCD4X_CMD_PERSIST_SETTINGS                      0x3615
-#define SCD4X_CMD_GET_SERIAL_NUMBER                     0x3682
-#define SCD4X_CMD_PERFORM_SELF_TEST                     0x3639
-#define SCD4X_CMD_PERFORM_FACTORY_RESET                 0x3632
-#define SCD4X_CMD_REINIT                                0x3646
-#define SCD4X_CMD_GET_SENSOR_VARIANT                    0x202F
-
-/* Single Shot Mode - Section 3.11 (SCD41 & SCD43 ONLY)
- * power_down/wake_up are only used if the sensor was previously
- * put to sleep via power_down. Not required on first VDD supply. */
-#define SCD4X_CMD_MEASURE_SINGLE_SHOT                   0x219D
-#define SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY          0x2196
-#define SCD4X_CMD_POWER_DOWN                            0x36E0
-#define SCD4X_CMD_WAKE_UP                               0x36F6  /* no ACK from sensor */
-#define SCD4X_CMD_SET_AUTO_SELF_CALIB_INITIAL_PERIOD    0x2445
-#define SCD4X_CMD_GET_AUTO_SELF_CALIB_INITIAL_PERIOD    0x2340
-#define SCD4X_CMD_SET_AUTO_SELF_CALIB_STANDARD_PERIOD   0x244E
-#define SCD4X_CMD_GET_AUTO_SELF_CALIB_STANDARD_PERIOD   0x234B
-/* Execution Time (ms) - Section 2.4, Table 7 & Table 9 */
-#define SCD4X_POWERUP_TIME_MS                           30
-#define SCD4X_SOFT_RESET_TIME_MS                        30
-
-#define SCD4X_EXEC_START_PERIODIC_MS                    0
-#define SCD4X_EXEC_READ_MEASUREMENT_MS                  1
-#define SCD4X_EXEC_STOP_PERIODIC_MS                     500
-#define SCD4X_EXEC_SET_TEMPERATURE_OFFSET_MS            1
-#define SCD4X_EXEC_GET_TEMPERATURE_OFFSET_MS            1
-#define SCD4X_EXEC_SET_SENSOR_ALTITUDE_MS               1
-#define SCD4X_EXEC_GET_SENSOR_ALTITUDE_MS               1
-#define SCD4X_EXEC_SET_AMBIENT_PRESSURE_MS              1
-#define SCD4X_EXEC_GET_AMBIENT_PRESSURE_MS              1
-#define SCD4X_EXEC_FORCED_RECAL_MS                      400
-#define SCD4X_EXEC_SET_AUTO_SELF_CALIB_ENABLED_MS       1
-#define SCD4X_EXEC_GET_AUTO_SELF_CALIB_ENABLED_MS       1
-#define SCD4X_EXEC_SET_AUTO_SELF_CALIB_TARGET_MS        1
-#define SCD4X_EXEC_GET_AUTO_SELF_CALIB_TARGET_MS        1
-#define SCD4X_EXEC_START_LOW_POWER_PERIODIC_MS          0
-#define SCD4X_EXEC_GET_DATA_READY_STATUS_MS             1
-#define SCD4X_EXEC_PERSIST_SETTINGS_MS                  800
-#define SCD4X_EXEC_GET_SERIAL_NUMBER_MS                 1
-#define SCD4X_EXEC_SELF_TEST_MS                         10000
-#define SCD4X_EXEC_FACTORY_RESET_MS                     1200
-#define SCD4X_EXEC_REINIT_MS                            30
-#define SCD4X_EXEC_GET_SENSOR_VARIANT_MS                1
-#define SCD4X_EXEC_SINGLE_SHOT_MS                       5000
-#define SCD4X_EXEC_SINGLE_SHOT_RHT_MS                   50
-#define SCD4X_EXEC_POWER_DOWN_MS                        1
-#define SCD4X_EXEC_WAKE_UP_MS                           30
-#define SCD4X_EXEC_SET_ASC_INITIAL_PERIOD_MS            1
-#define SCD4X_EXEC_GET_ASC_INITIAL_PERIOD_MS            1
-#define SCD4X_EXEC_SET_ASC_STANDARD_PERIOD_MS           1
-#define SCD4X_EXEC_GET_ASC_STANDARD_PERIOD_MS           1
+#include "scd4x_defs.h"
 
 /**
  * @brief Compute CRC-8 for SCD4x protocol.
@@ -276,7 +191,7 @@ static SCD4x_Status _scd4x_stop_if_periodic(SCD4x_Dev *dev, SCD4x_Mode *prev_mod
     *prev_mode = dev->mode;
 
     if (dev->mode == SCD4X_MODE_PERIODIC || dev->mode == SCD4X_MODE_PERIODIC_LOW_POWER) {
-        return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC_MEASUREMENT, SCD4X_EXEC_STOP_PERIODIC_MS);
+        return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC, SCD4X_EXEC_STOP_PERIODIC_MS);
     }
     return SCD4X_OK;    /* SINGLE_SHOT / already idle: nothing to do */
 }
@@ -292,12 +207,12 @@ static SCD4x_Status _scd4x_resume(SCD4x_Dev *dev, SCD4x_Mode mode)
     switch (mode) {
         case SCD4X_MODE_PERIODIC:
             return _scd4x_send_command_with_delay(dev,
-                        SCD4X_CMD_START_PERIODIC_MEASUREMENT,
+                        SCD4X_CMD_START_PERIODIC,
                         SCD4X_EXEC_START_PERIODIC_MS);
 
         case SCD4X_MODE_PERIODIC_LOW_POWER:
             return _scd4x_send_command_with_delay(dev,
-                        SCD4X_CMD_START_LOW_POWER_PERIODIC_MEASUREMENT,
+                        SCD4X_CMD_START_LOW_POWER_PERIODIC,
                         SCD4X_EXEC_START_LOW_POWER_PERIODIC_MS);
 
         case SCD4X_MODE_SINGLE_SHOT:
@@ -334,11 +249,11 @@ SCD4x_Status SCD4x_StartMeasurement(SCD4x_Dev *dev, SCD4x_Mode mode){
     
     switch(dev->mode){
         case SCD4X_MODE_PERIODIC:{
-            st = _scd4x_send_command_with_delay(dev, SCD4X_CMD_START_PERIODIC_MEASUREMENT, SCD4X_EXEC_START_PERIODIC_MS);
+            st = _scd4x_send_command_with_delay(dev, SCD4X_CMD_START_PERIODIC, SCD4X_EXEC_START_PERIODIC_MS);
             break;
         }
         case SCD4X_MODE_PERIODIC_LOW_POWER:{
-            st = _scd4x_send_command_with_delay(dev, SCD4X_CMD_START_LOW_POWER_PERIODIC_MEASUREMENT, SCD4X_EXEC_START_LOW_POWER_PERIODIC_MS);
+            st = _scd4x_send_command_with_delay(dev, SCD4X_CMD_START_LOW_POWER_PERIODIC, SCD4X_EXEC_START_LOW_POWER_PERIODIC_MS);
             break;
         }
         case SCD4X_MODE_SINGLE_SHOT:{
@@ -384,10 +299,10 @@ SCD4x_Status SCD4x_Stop(SCD4x_Dev *dev){
 
     switch(dev->mode){
         case SCD4X_MODE_PERIODIC:{
-            return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC_MEASUREMENT, SCD4X_EXEC_STOP_PERIODIC_MS);
+            return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC, SCD4X_EXEC_STOP_PERIODIC_MS);
         }
         case SCD4X_MODE_PERIODIC_LOW_POWER:{
-            return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC_MEASUREMENT, SCD4X_EXEC_STOP_PERIODIC_MS);
+            return _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC, SCD4X_EXEC_STOP_PERIODIC_MS);
         }
         case SCD4X_MODE_SINGLE_SHOT:{
             /* SCD4X Single Shot not need stop command */
@@ -486,7 +401,7 @@ SCD4x_Status SCD4x_SetAmbientPressure(SCD4x_Dev *dev, uint32_t pressure_pa)
     }
 
     uint16_t word = SCD4X_PRESSURE_ENCODE(pressure_pa);
-    return _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_AMBIENT_PRESSURE, word, SCD4X_EXEC_SET_AMBIENT_PRESSURE_MS);
+    return _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_AMBIENT_PRESSURE, word, SCD4X_EXEC_AMBIENT_PRESSURE_MS);
 }
 
 SCD4x_Status SCD4x_GetAmbientPressure(SCD4x_Dev *dev, uint32_t *pressure_pa)
@@ -496,7 +411,7 @@ SCD4x_Status SCD4x_GetAmbientPressure(SCD4x_Dev *dev, uint32_t *pressure_pa)
     }
 
     uint16_t word;
-    SCD4x_Status st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_AMBIENT_PRESSURE, SCD4X_EXEC_GET_AMBIENT_PRESSURE_MS, &word, 1);
+    SCD4x_Status st = _scd4x_send_and_fetch(dev, SCD4X_CMD_AMBIENT_PRESSURE, SCD4X_EXEC_AMBIENT_PRESSURE_MS, &word, 1);
 
     if(st == SCD4X_OK){
         *pressure_pa = SCD4X_PRESSURE_DECODE(word);
@@ -525,7 +440,7 @@ SCD4x_Status SCD4x_PerformForcedRecalibration(SCD4x_Dev *dev, uint16_t target_pp
         return SCD4X_ERR_I2C;   
     }
 
-    dev->delay_ms(SCD4X_EXEC_FORCED_RECAL_MS);
+    dev->delay_ms(SCD4X_EXEC_FORCED_RECALIBRATION_MS);
 
     uint16_t word;
     SCD4x_Status st = _scd4x_read_words(dev, &word, 1);
@@ -557,7 +472,7 @@ SCD4x_Status SCD4x_SetAutoSelfCalibEnabled(SCD4x_Dev *dev, bool enabled)
     if (st != SCD4X_OK) return st;
 
     uint16_t word = enabled ? 0x0001 : 0x0000;
-    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_AUTO_SELF_CALIB_ENABLED, word, SCD4X_EXEC_SET_AUTO_SELF_CALIB_ENABLED_MS);
+    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_ASC_ENABLED, word, SCD4X_EXEC_SET_ASC_ENABLED_MS);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -576,8 +491,7 @@ SCD4x_Status SCD4x_GetAutoSelfCalibEnabled(SCD4x_Dev *dev, bool *enabled)
     if (st != SCD4X_OK) return st;
 
     uint16_t word;
-    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_AUTO_SELF_CALIB_ENABLED,
-                                SCD4X_EXEC_GET_AUTO_SELF_CALIB_ENABLED_MS, &word, 1);
+    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_ASC_ENABLED, SCD4X_EXEC_GET_ASC_ENABLED_MS, &word, 1);
     if (st == SCD4X_OK) {
         *enabled = (word == 0x0001);
     }
@@ -600,7 +514,7 @@ SCD4x_Status SCD4x_SetAutoSelfCalibTarget(SCD4x_Dev *dev, uint16_t target_ppm)
         return st;
     }
 
-    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_AUTO_SELF_CALIB_TARGET, target_ppm, SCD4X_EXEC_SET_AUTO_SELF_CALIB_TARGET_MS);
+    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_ASC_TARGET, target_ppm, SCD4X_EXEC_SET_ASC_TARGET_MS);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -620,8 +534,7 @@ SCD4x_Status SCD4x_GetAutoSelfCalibTarget(SCD4x_Dev *dev, uint16_t *target_ppm)
         return st;
     }
 
-    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_AUTO_SELF_CALIB_TARGET,
-                                SCD4X_EXEC_GET_AUTO_SELF_CALIB_TARGET_MS, target_ppm, 1);
+    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_ASC_TARGET, SCD4X_EXEC_GET_ASC_TARGET_MS, target_ppm, 1);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -679,7 +592,7 @@ SCD4x_Status SCD4x_PerformSelfTest(SCD4x_Dev *dev, bool *ok)
     SCD4x_Status st;
 
     uint16_t word;
-    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_PERFORM_SELF_TEST, SCD4X_EXEC_SELF_TEST_MS, &word, 1);
+    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_PERFORM_SELF_TEST, SCD4X_EXEC_PERFORM_SELF_TEST_MS, &word, 1);
     if (st != SCD4X_OK){
         return st;
     }
@@ -693,7 +606,7 @@ SCD4x_Status SCD4x_PerformFactoryReset(SCD4x_Dev *dev)
     if(!dev){
         return SCD4X_ERR_PARAM;
     }
-    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_PERFORM_FACTORY_RESET, SCD4X_EXEC_FACTORY_RESET_MS);
+    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_PERFORM_FACTORY_RESET, SCD4X_EXEC_PERFORM_FACTORY_RESET_MS);
 }
 
 SCD4x_Status SCD4x_Reinit(SCD4x_Dev *dev)
@@ -730,7 +643,7 @@ SCD4x_Status SCD4x_MeasureSingleShot(SCD4x_Dev *dev)
     if(!dev){
         return SCD4X_ERR_PARAM;
     }
-    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_MEASURE_SINGLE_SHOT, SCD4X_EXEC_SINGLE_SHOT_MS);
+    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_MEASURE_SINGLE_SHOT, SCD4X_EXEC_MEASURE_SINGLE_SHOT_MS);
 }
 
 SCD4x_Status SCD4x_MeasureSingleShotRHTOnly(SCD4x_Dev *dev)
@@ -738,7 +651,7 @@ SCD4x_Status SCD4x_MeasureSingleShotRHTOnly(SCD4x_Dev *dev)
     if(!dev){
         return SCD4X_ERR_PARAM;
     }
-    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY, SCD4X_EXEC_SINGLE_SHOT_RHT_MS);
+    return _scd4x_send_command_with_delay(dev, SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY, SCD4X_EXEC_MEASURE_SINGLE_SHOT_RHT_MS);
 }
 
 SCD4x_Status SCD4x_PowerDown(SCD4x_Dev *dev)
@@ -777,7 +690,7 @@ SCD4x_Status SCD4x_SetASCInitialPeriod(SCD4x_Dev *dev, uint16_t period_h)
         return st;
     }
 
-    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_AUTO_SELF_CALIB_INITIAL_PERIOD, period_h, SCD4X_EXEC_SET_ASC_INITIAL_PERIOD_MS);
+    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_ASC_INITIAL_PERIOD, period_h, SCD4X_EXEC_SET_ASC_INITIAL_PERIOD_MS);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -797,7 +710,7 @@ SCD4x_Status SCD4x_GetASCInitialPeriod(SCD4x_Dev *dev, uint16_t *period_h)
         return st;
     }
 
-    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_AUTO_SELF_CALIB_INITIAL_PERIOD, SCD4X_EXEC_GET_ASC_INITIAL_PERIOD_MS, period_h, 1);
+    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_ASC_INITIAL_PERIOD, SCD4X_EXEC_GET_ASC_INITIAL_PERIOD_MS, period_h, 1);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -817,7 +730,7 @@ SCD4x_Status SCD4x_SetASCStandardPeriod(SCD4x_Dev *dev, uint16_t period_h)
         return st;
     }
 
-    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_AUTO_SELF_CALIB_STANDARD_PERIOD, period_h, SCD4X_EXEC_SET_ASC_STANDARD_PERIOD_MS);
+    st = _scd4x_send_command_with_arg_delay(dev, SCD4X_CMD_SET_ASC_STANDARD_PERIOD, period_h, SCD4X_EXEC_SET_ASC_STANDARD_PERIOD_MS);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
@@ -837,7 +750,7 @@ SCD4x_Status SCD4x_GetASCStandardPeriod(SCD4x_Dev *dev, uint16_t *period_h)
         return st;
     }
 
-    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_AUTO_SELF_CALIB_STANDARD_PERIOD, SCD4X_EXEC_GET_ASC_STANDARD_PERIOD_MS, period_h, 1);
+    st = _scd4x_send_and_fetch(dev, SCD4X_CMD_GET_ASC_STANDARD_PERIOD, SCD4X_EXEC_GET_ASC_STANDARD_PERIOD_MS, period_h, 1);
 
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
