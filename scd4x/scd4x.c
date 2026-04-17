@@ -93,13 +93,10 @@
 
 /**
  * @brief Compute CRC-8 for SCD4x protocol.
- *
  * Polynomial: 0x31
  * Initial value: 0xFF
- *
  * @param[in] data Pointer to input buffer.
  * @param[in] len  Number of bytes to process.
- *
  * @return Calculated CRC-8 value.
  */
 uint8_t _scd4x_crc8(const uint8_t *data, size_t len)
@@ -121,10 +118,8 @@ uint8_t _scd4x_crc8(const uint8_t *data, size_t len)
 
 /**
  * @brief Send 16-bit command to sensor (big-endian).
- *
  * @param[in] dev  Device handle.
  * @param[in] cmd  16-bit command.
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_send_command(SCD4x_Dev *dev, uint16_t cmd)
@@ -141,13 +136,10 @@ static SCD4x_Status _scd4x_send_command(SCD4x_Dev *dev, uint16_t cmd)
 
 /**
  * @brief Send 16-bit command and wait execution time.
- *
  * Blocking delay is applied after command transmission.
- *
  * @param[in] dev      Device handle.
  * @param[in] cmd      16-bit command.
  * @param[in] exec_ms  Execution delay in milliseconds.
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_send_command_with_delay(SCD4x_Dev *dev, uint16_t cmd, uint32_t exec_ms){
@@ -169,14 +161,11 @@ static SCD4x_Status _scd4x_send_command_with_delay(SCD4x_Dev *dev, uint16_t cmd,
 
 /**
  * @brief Send command with 16-bit argument and CRC.
- *
  * Argument is transmitted in big-endian format and
  * followed by CRC-8 as required by SCD4x protocol.
- *
  * @param[in] dev  Device handle.
  * @param[in] cmd  16-bit command.
  * @param[in] arg  16-bit argument.
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_send_command_with_arg(SCD4x_Dev *dev, uint16_t cmd, uint16_t arg)
@@ -197,12 +186,10 @@ static SCD4x_Status _scd4x_send_command_with_arg(SCD4x_Dev *dev, uint16_t cmd, u
 
 /**
  * @brief Send command with 16-bit argument and wait execution time.
- *
  * @param dev       Pointer to SCD4x device descriptor.
  * @param cmd       16-bit command (big-endian on bus).
  * @param arg       16-bit argument (CRC handled internally).
  * @param exec_ms   Execution time in milliseconds.
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_send_command_with_arg_delay(SCD4x_Dev *dev, uint16_t cmd, uint16_t arg, uint32_t exec_ms){
@@ -222,17 +209,13 @@ static SCD4x_Status _scd4x_send_command_with_arg_delay(SCD4x_Dev *dev, uint16_t 
 
 /**
  * @brief Read multiple 16-bit words from sensor.
- *
  * Each word consists of:
  *   - 2 data bytes (MSB first)
  *   - 1 CRC byte
- *
  * CRC is verified for each word.
- *
  * @param[in]  dev       Device handle.
  * @param[out] words     Output buffer for decoded words.
  * @param[in]  n_words   Number of words to read.
- *
  * @return SCD4X_OK on success,
  *         SCD4X_ERR_CRC if CRC mismatch,
  *         SCD4X_ERR_I2C on bus error.
@@ -260,18 +243,15 @@ static SCD4x_Status _scd4x_read_words(SCD4x_Dev *dev, uint16_t *words, size_t n_
 
 /**
  * @brief Send command, wait execution time, then read response.
- *
  * Blocking transaction:
  *   1. Send command
  *   2. Delay for execution time
  *   3. Read response words
- *
  * @param[in]  dev        Device handle.
  * @param[in]  cmd        16-bit command.
  * @param[in]  exec_ms    Execution delay in milliseconds.
  * @param[out] words_out  Output buffer for response words.
  * @param[in]  n_words    Number of words to read.
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_send_and_fetch(SCD4x_Dev *dev, uint16_t cmd, uint32_t exec_ms, uint16_t *words_out, size_t n_words)
@@ -287,10 +267,8 @@ static SCD4x_Status _scd4x_send_and_fetch(SCD4x_Dev *dev, uint16_t cmd, uint32_t
 /**
  * @brief Stop measurement if currently in a periodic mode.
  *        Saves current mode so it can be resumed later.
- *
  * @param[in]  dev       Device handle.
  * @param[out] prev_mode Mode before stopping (to resume later).
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_stop_if_periodic(SCD4x_Dev *dev, SCD4x_Mode *prev_mode)
@@ -305,10 +283,8 @@ static SCD4x_Status _scd4x_stop_if_periodic(SCD4x_Dev *dev, SCD4x_Mode *prev_mod
 
 /**
  * @brief Resume measurement mode after settings change.
- *
  * @param[in] dev   Device handle.
  * @param[in] mode  Mode to resume (saved from _scd4x_stop_if_periodic).
- *
  * @return SCD4X_OK on success, error code otherwise.
  */
 static SCD4x_Status _scd4x_resume(SCD4x_Dev *dev, SCD4x_Mode mode)
@@ -332,20 +308,21 @@ static SCD4x_Status _scd4x_resume(SCD4x_Dev *dev, SCD4x_Mode mode)
 
 /** Public APIs */
 
+
 SCD4x_Status SCD4x_Init(SCD4x_Dev *dev){
-    if(!dev || !(dev->i2c_addr) || !(dev->i2c_read) || !(dev->i2c_write) || !(dev->delay_ms)){
+    if(!dev || !(dev->i2c_read) || !(dev->i2c_write) || !(dev->delay_ms)){
         return SCD4X_ERR_PARAM;
     }
-    SCD4x_Status ret;
+    SCD4x_Status st;
 
     /* Power-up time */
     dev->delay_ms(SCD4X_POWERUP_TIME_MS);
 
     /* Verify serial number */
     uint64_t serial;
-    ret = SCD4x_GetSerialNumber(dev, &serial);
+    st = SCD4x_GetSerialNumber(dev, &serial);
 
-    return ret;
+    return st;
 }
 
 SCD4x_Status SCD4x_StartMeasurement(SCD4x_Dev *dev, SCD4x_Mode mode){
@@ -442,11 +419,6 @@ SCD4x_Status SCD4x_SetTemperatureOffset(SCD4x_Dev *dev, float offset_c){
     return (st != SCD4X_OK) ? st : resume_st;
 }
 
-/**
- * @brief
- * @param 
- * @param offset_c output buffer to store offset
- */
 SCD4x_Status SCD4x_GetTemperatureOffset(SCD4x_Dev *dev, float *offset_c){
     if(!dev || !offset_c){
         return SCD4X_ERR_PARAM;
@@ -656,7 +628,6 @@ SCD4x_Status SCD4x_GetAutoSelfCalibTarget(SCD4x_Dev *dev, uint16_t *target_ppm)
 }
 
 /* ===================== Low power periodic measurement mode ====================== */
-
 SCD4x_Status SCD4x_GetDataReadyStatus(SCD4x_Dev *dev, bool *ready){
     if(!dev || !ready){
         return SCD4X_ERR_PARAM;
@@ -675,6 +646,7 @@ SCD4x_Status SCD4x_GetDataReadyStatus(SCD4x_Dev *dev, bool *ready){
 
 
 /* ==================== Advanced Features ========================== */
+
 
 SCD4x_Status SCD4x_PersistSettings(SCD4x_Dev *dev){
     if(!dev){
@@ -777,19 +749,6 @@ SCD4x_Status SCD4x_PowerDown(SCD4x_Dev *dev)
     return _scd4x_send_command_with_delay(dev, SCD4X_CMD_POWER_DOWN, SCD4X_EXEC_POWER_DOWN_MS);
 }
 
-/**
- * @brief Wake up sensor from power-down state.
- *
- * The SCD4x does not ACK the wake_up command - this is expected behavior
- * per datasheet. The I2C error is intentionally ignored.
- * Sensor readiness is verified by reading the serial number after the
- * required wake-up delay.
- *
- * @param[in] dev Device handle.
- *
- * @return SCD4X_OK if sensor is responsive after wake-up,
- *         SCD4X_ERR_I2C if serial number read fails.
- */
 SCD4x_Status SCD4x_WakeUp(SCD4x_Dev *dev)
 {
     if (!dev) {
@@ -823,7 +782,6 @@ SCD4x_Status SCD4x_SetASCInitialPeriod(SCD4x_Dev *dev, uint16_t period_h)
     SCD4x_Status resume_st = _scd4x_resume(dev, prev_mode);
     return (st != SCD4X_OK) ? st : resume_st;
 }
-
 
 SCD4x_Status SCD4x_GetASCInitialPeriod(SCD4x_Dev *dev, uint16_t *period_h)
 {
