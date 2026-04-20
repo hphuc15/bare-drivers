@@ -1,12 +1,12 @@
 /* ============================================================
  * scd4x_defs.h
  * SCD4x (SCD40 / SCD41 / SCD43) — Register & Constant Definitions
- * Ref: Datasheet v1.1
+ * Ref: Datasheet v1.7
  * ============================================================ */
 /**
  * @file scd4x_defs.h
  * @brief   SCD4x (SCD40 / SCD41 / SCD43) — Register & Constant Definitions
- *          Ref: Datasheet v1.1
+ *          Ref: Datasheet v1.7
  */
 #ifndef SCD4X_DEFS_H
 #define SCD4X_DEFS_H
@@ -22,7 +22,7 @@
 
 typedef enum {
     SCD4X_VARIANT_SCD40 = 0x0000,
-    SCD4X_VARIANT_SCD41 = 1000,
+    SCD4X_VARIANT_SCD41 = 0x1000,
     SCD4X_VARIANT_SCD43 = 0x5000,
 } scd4x_variant_t;
 

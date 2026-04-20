@@ -357,7 +357,7 @@ SCD4x_Status SCD4x_GetTemperatureOffset(SCD4x_Dev *dev, float *offset_c){
 }
 
 SCD4x_Status SCD4x_SetSensorAltitude(SCD4x_Dev *dev, uint16_t altitude_m){
-    if(!dev || altitude_m < SCD4X_ALTITUDE_MIN_M || altitude_m > SCD4X_ALTITUDE_MAX_M){
+    if(!dev || altitude_m > SCD4X_ALTITUDE_MAX_M){
         return SCD4X_ERR_PARAM;
     }
     SCD4x_Status st;
