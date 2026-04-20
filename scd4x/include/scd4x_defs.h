@@ -189,18 +189,14 @@ typedef enum {
  * ============================================================ */
 
 /* Decode raw sensor words → physical units */
-#define SCD4X_RAW_TO_CO2_PPM(raw)          ((uint16_t)(raw))
-#define SCD4X_RAW_TO_TEMP_C(raw)           (-45.0f + 175.0f * (float)(raw) / 65535.0f)
-#define SCD4X_RAW_TO_HUMID_RH(raw)         (100.0f  * (float)(raw) / 65535.0f)
-#define SCD4X_RAW_TO_TEMP_OFFSET_C(raw)    ((float)(raw) * 175.0f / 65535.0f)
-#define SCD4X_RAW_TO_PRESSURE_PA(raw)      ((uint32_t)(raw) * 100U)
-#define SCD4X_RAW_TO_FRC_CORRECTION(raw)   ((int16_t)((raw) - 0x8000))
-
-/* Encode physical units → raw words for write commands */
-#define SCD4X_TEMP_OFFSET_TO_RAW(t_c)      ((uint16_t)((t_c) * 65535.0f / 175.0f))
-#define SCD4X_PRESSURE_TO_RAW(pa)          ((uint16_t)((pa) / 100U))
-
-/* Status helpers */
-#define SCD4X_IS_DATA_READY(raw)           (((raw) & SCD4X_DATA_READY_MASK) != 0)
+#define SCD4X_CO2_PPM(raw)                      ((uint16_t)(raw))
+#define SCD4X_TEMP_C(raw)                       (-45.0f + 175.0f * (float)(raw) / 65535.0f)
+#define SCD4X_HUMID_RH(raw)                     (100.0f  * (float)(raw) / 65535.0f)
+#define SCD4X_TEMP_OFFSET_DECODE(raw)           ((float)(raw) * 175.0f / 65535.0f)
+#define SCD4X_PRESSURE_DECODE(raw)              ((uint32_t)(raw) * 100)
+#define SCD4X_FRC_CORRECTION_PPM(raw)           ((int16_t)((raw) - 0x8000))
+#define SCD4X_TEMP_OFFSET_ENCODE(t_c)           ((uint16_t)((t_c) * 65535.0f / 175.0f))
+#define SCD4X_PRESSURE_ENCODE(pa)               ((uint16_t)((pa) / 100))
+#define SCD4X_IS_DATA_READY(raw)                (((raw) & SCD4X_DATA_READY_MASK) != 0)
 
 #endif /* SCD4X_DEFS_H */
