@@ -651,6 +651,8 @@ SCD4x_Status SCD4x_MeasureSingleShotRHTOnly(SCD4x_Dev *dev)
     if(!dev){
         return SCD4X_ERR_PARAM;
     }
+    /* NOTE (Datasheet §3.11.2): CO2 output will be 0 ppm in read_measurement.
+     * Only RH and temperature values are valid after this command. */
     return _scd4x_send_command_with_delay(dev, SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY, SCD4X_EXEC_MEASURE_SINGLE_SHOT_RHT_MS);
 }
 
@@ -664,14 +666,17 @@ SCD4x_Status SCD4x_PowerDown(SCD4x_Dev *dev)
 
 SCD4x_Status SCD4x_WakeUp(SCD4x_Dev *dev)
 {
-    if (!dev) {
-        return SCD4X_ERR_PARAM;
-    }
+    if (!dev) return SCD4X_ERR_PARAM;
 
-    /* No ACK from sensor on wake_up command - intentionally ignored */
-    (void)_scd4x_send_command_with_delay(dev, SCD4X_CMD_WAKE_UP, SCD4X_EXEC_WAKE_UP_MS);
+    /* Send raw bytes and ignore NACK from i2c_write. */
+    uint8_t buf[2] = {
+        (uint8_t)(SCD4X_CMD_WAKE_UP >> 8),
+        (uint8_t)(SCD4X_CMD_WAKE_UP & 0xFF)
+    };
+    (void)dev->i2c_write(dev->i2c_addr, buf, 2); /* NACK expected, intentionally ignored */
+    dev->delay_ms(SCD4X_EXEC_WAKE_UP_MS);         /* 30ms guaranteed regardless */
 
-    /* Verify sensor is responsive by reading serial number */
+    /* Verify idle state per datasheet recommendation */
     uint64_t serial;
     return SCD4x_GetSerialNumber(dev, &serial);
 }
