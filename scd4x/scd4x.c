@@ -228,16 +228,16 @@ SCD4x_Status SCD4x_Init(SCD4x_Dev *dev){
     if(!dev || !(dev->i2c_read) || !(dev->i2c_write) || !(dev->delay_ms)){
         return SCD4X_ERR_PARAM;
     }
-    SCD4x_Status st;
+
+    /* Stop if periodic mode is running */
+    _scd4x_send_command_with_delay(dev, SCD4X_CMD_STOP_PERIODIC, SCD4X_EXEC_STOP_PERIODIC_MS);
 
     /* Power-up time */
     dev->delay_ms(SCD4X_POWERUP_TIME_MS);
 
     /* Verify serial number */
     uint64_t serial;
-    st = SCD4x_GetSerialNumber(dev, &serial);
-
-    return st;
+    return SCD4x_GetSerialNumber(dev, &serial);
 }
 
 SCD4x_Status SCD4x_StartMeasurement(SCD4x_Dev *dev, SCD4x_Mode mode){
